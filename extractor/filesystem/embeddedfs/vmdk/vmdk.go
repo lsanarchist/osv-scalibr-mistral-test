@@ -229,7 +229,8 @@ func readFooterIfGDAtEnd(f *os.File, hdr *sparseExtentHeader) error {
 		return fmt.Errorf("footer magic mismatch: 0x%x", binary.LittleEndian.Uint32(footerHeaderBlock[0:4]))
 	}
 	var foot sparseExtentHeader
-	r := bytes.NewReader(footerHeaderBlock)
+	//r := bytes.NewReader(footerHeaderBlock[4:])
+		r := bytes.NewReader(footerHeaderBlock)
 	if err := binary.Read(r, binary.LittleEndian, &foot); err != nil {
 		return fmt.Errorf("parse footer header: %w", err)
 	}
