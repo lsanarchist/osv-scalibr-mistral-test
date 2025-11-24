@@ -18,23 +18,72 @@ import (
 	"regexp"
 
 	"github.com/google/osv-scalibr/veles"
-	"github.com/google/osv-scalibr/veles/secrets/common/simpletoken"
 )
 
 // maxTokenLength is the maximum size of a Mistral API key.
-const maxTokenLength = 64
+const maxTokenLength = 32
 
-// keyRe is a regular expression that matches Mistral API keys.
-// Mistral API keys are typically 32 alphanumeric characters.
-var keyRe = regexp.MustCompile(`\b[a-zA-Z0-9]{32}\b`)
+// envVarRe matches environment variable style assignments.
+// Examples: MISTRAL_API_KEY=token, MISTRAL_TOKEN="token"
+var envVarRe = regexp.MustCompile(
+	`(?i)(MISTRAL_API_KEY|MISTRAL_KEY|MISTRAL_TOKEN|MISTRAL_API_TOKEN)\s*=\s*['"]?([a-zA-Z0-9]{32})\b['"]?`,
+)
 
-// NewDetector returns a new simpletoken.Detector that matches Mistral API keys.
+// jsonRe matches JSON key-value pairs.
+// Examples: "mistral_api_key": "token", "mistral_token": "token"
+var jsonRe = regexp.MustCompile(
+	`(?i)"(mistral_api_key|mistral_key|mistral_token|mistral_api_token)"\s*:\s*"([a-zA-Z0-9]{32})\b"`,
+)
+
+// yamlRe matches YAML key-value pairs.
+// Examples: mistral_api_key: token, mistral_token: "token"
+var yamlRe = regexp.MustCompile(
+	`(?i)(mistral_api_key|mistral_key|mistral_token|mistral_api_token)\s*:\s*['"]?([a-zA-Z0-9]{32})\b['"]?`,
+)
+
+// Detector finds instances of Mistral API keys inside a chunk of text.
+type Detector struct{}
+
+// NewDetector returns a new Detector that matches Mistral API keys.
 func NewDetector() veles.Detector {
-	return simpletoken.Detector{
-		MaxLen: maxTokenLength,
-		Re:     keyRe,
-		FromMatch: func(b []byte) (veles.Secret, bool) {
-			return APIKey{Key: string(b)}, true
-		},
+	return &Detector{}
+}
+
+// MaxSecretLen returns the maximum length of the token.
+func (d *Detector) MaxSecretLen() uint32 {
+	return maxTokenLength
+}
+
+// Detect finds candidate tokens that match the regex patterns.
+func (d *Detector) Detect(data []byte) ([]veles.Secret, []int) {
+	var secrets []veles.Secret
+	var positions []int
+	seenTokens := make(map[string]bool)
+
+	// Define all regex patterns to check
+	patterns := []*regexp.Regexp{
+		envVarRe,
+		jsonRe,
+		yamlRe,
 	}
+
+	// Check each pattern
+	for _, pattern := range patterns {
+		matches := pattern.FindAllSubmatchIndex(data, -1)
+		for _, match := range matches {
+			// match[4] and match[5] contain the start and end indices of the second capture group (the token)
+			if len(match) >= 6 {
+				tokenStart := match[4]
+				tokenEnd := match[5]
+				token := string(data[tokenStart:tokenEnd])
+
+				if !seenTokens[token] {
+					secrets = append(secrets, APIKey{Key: token})
+					positions = append(positions, tokenStart)
+					seenTokens[token] = true
+				}
+			}
+		}
+	}
+	return secrets, positions
 }

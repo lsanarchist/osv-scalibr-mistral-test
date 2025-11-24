@@ -38,27 +38,70 @@ func TestDetector(t *testing.T) {
 		name  string
 		input string
 		want  []veles.Secret
-	}{{
-		name:  "valid_key",
-		input: validAPIKey,
-		want: []veles.Secret{
-			APIKey{Key: validAPIKey},
+	}{
+		{
+			name:  "MISTRAL_API_KEY env var",
+			input: "MISTRAL_API_KEY=" + validAPIKey,
+			want: []veles.Secret{
+				APIKey{Key: validAPIKey},
+			},
 		},
-	}, {
-		name:  "valid_key_in_config",
-		input: "MISTRAL_API_KEY=" + validAPIKey,
-		want: []veles.Secret{
-			APIKey{Key: validAPIKey},
+		{
+			name:  "MISTRAL_TOKEN env var with quotes",
+			input: `MISTRAL_TOKEN="` + validAPIKey + `"`,
+			want: []veles.Secret{
+				APIKey{Key: validAPIKey},
+			},
 		},
-	}, {
-		name:  "invalid_key_too_short",
-		input: "abcdefghijklmnopqrstuvwxyz12345",
-		want:  nil,
-	}, {
-		name:  "invalid_key_too_long",
-		input: "abcdefghijklmnopqrstuvwxyz1234567",
-		want:  nil,
-	}}
+		{
+			name:  "JSON format",
+			input: `{"mistral_api_key": "` + validAPIKey + `"}`,
+			want: []veles.Secret{
+				APIKey{Key: validAPIKey},
+			},
+		},
+		{
+			name:  "YAML format",
+			input: `mistral_token: ` + validAPIKey,
+			want: []veles.Secret{
+				APIKey{Key: validAPIKey},
+			},
+		},
+		{
+			name:  "YAML format with quotes",
+			input: `mistral_api_token: "` + validAPIKey + `"`,
+			want: []veles.Secret{
+				APIKey{Key: validAPIKey},
+			},
+		},
+		{
+			name:  "Case insensitive env var",
+			input: `Mistral_Api_Key=` + validAPIKey,
+			want: []veles.Secret{
+				APIKey{Key: validAPIKey},
+			},
+		},
+		{
+			name:  "Random 32-char string without context",
+			input: validAPIKey,
+			want:  nil,
+		},
+		{
+			name:  "Wrong key name",
+			input: `OTHER_API_KEY=` + validAPIKey,
+			want:  nil,
+		},
+		{
+			name:  "Key too short",
+			input: `MISTRAL_API_KEY=` + validAPIKey[:31],
+			want:  nil,
+		},
+		{
+			name:  "Key too long",
+			input: `MISTRAL_API_KEY=` + validAPIKey + "a",
+			want:  nil,
+		},
+	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
