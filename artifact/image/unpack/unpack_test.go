@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 	"testing"
 
 	"archive/tar"
@@ -132,6 +133,9 @@ func TestNewUnpacker(t *testing.T) {
 }
 
 func TestUnpackSquashed(t *testing.T) {
+	oldMask := syscall.Umask(0022)
+	defer syscall.Umask(oldMask)
+
 	if runtime.GOOS != "linux" {
 		// TODO(b/366163334): Make tests work on Mac and Windows.
 		return
