@@ -44,6 +44,7 @@ import (
 	veleshashicorpvault "github.com/google/osv-scalibr/veles/secrets/hashicorpvault"
 	veleshashicorpcloudplatform "github.com/google/osv-scalibr/veles/secrets/hcp"
 	"github.com/google/osv-scalibr/veles/secrets/huggingfaceapikey"
+	"github.com/google/osv-scalibr/veles/secrets/mistralapikey"
 	velesonepasswordkeys "github.com/google/osv-scalibr/veles/secrets/onepasswordkeys"
 	velesopenai "github.com/google/osv-scalibr/veles/secrets/openai"
 	velesperplexity "github.com/google/osv-scalibr/veles/secrets/perplexityapikey"
@@ -182,6 +183,8 @@ func velesSecretToProto(s veles.Secret) (*spb.SecretData, error) {
 		return pgpassToProto(t), nil
 	case huggingfaceapikey.HuggingfaceAPIKey:
 		return huggingfaceAPIKeyToProto(t), nil
+	case mistralapikey.APIKey:
+		return mistralAPIKeyToProto(t.Key), nil
 	case velesstripeapikeys.StripeSecretKey:
 		return stripeSecretKeyToProto(t), nil
 	case velesstripeapikeys.StripeRestrictedKey:
@@ -375,6 +378,16 @@ func anthropicModelAPIKeyToProto(key string) *spb.SecretData {
 	return &spb.SecretData{
 		Secret: &spb.SecretData_AnthropicModelApiKey{
 			AnthropicModelApiKey: &spb.SecretData_AnthropicModelAPIKey{
+				Key: key,
+			},
+		},
+	}
+}
+
+func mistralAPIKeyToProto(key string) *spb.SecretData {
+	return &spb.SecretData{
+		Secret: &spb.SecretData_MistralApiKey{
+			MistralApiKey: &spb.SecretData_MistralAPIKey{
 				Key: key,
 			},
 		},
