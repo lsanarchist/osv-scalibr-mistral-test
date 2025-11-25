@@ -64,6 +64,9 @@ func PackageToProto(pkg *extractor.Package) (*spb.Package, error) {
 	p := converter.ToPURL(pkg)
 
 	var exps []*spb.PackageExploitabilitySignal
+	if len(pkg.ExploitabilitySignals) > 0 {
+		exps = make([]*spb.PackageExploitabilitySignal, 0, len(pkg.ExploitabilitySignals))
+	}
 	for _, exp := range pkg.ExploitabilitySignals {
 		expProto, err := PackageVEXToProto(exp)
 		if err != nil {
@@ -333,6 +336,9 @@ func purlToProto(p *purl.PackageURL) *spb.Purl {
 }
 
 func qualifiersToProto(qs purl.Qualifiers) []*spb.Qualifier {
+	if len(qs) == 0 {
+		return nil
+	}
 	result := make([]*spb.Qualifier, 0, len(qs))
 	for _, q := range qs {
 		result = append(result, &spb.Qualifier{Key: q.Key, Value: q.Value})

@@ -19,6 +19,8 @@ package main
 import (
 	"flag"
 	"os"
+	"runtime"
+	"runtime/pprof"
 
 	"github.com/google/osv-scalibr/binary/cli"
 	"github.com/google/osv-scalibr/binary/scanrunner"
@@ -34,23 +36,51 @@ func run(args []string) int {
 	if len(args) >= 2 {
 		subcommand = args[1]
 	}
+	var flags *cli.Flags
+	var err error
 	switch subcommand {
 	case "scan":
-		flags, err := parseFlags(args[2:])
-		if err != nil {
-			log.Errorf("Error parsing CLI args: %v", err)
-			return 1
-		}
-		return scanrunner.RunScan(flags)
+		flags, err = parseFlags(args[2:])
 	default:
 		// Assume 'scan' if subcommand is not recognized/specified.
-		flags, err := parseFlags(args[1:])
+		flags, err = parseFlags(args[1:])
+	}
+
+	if err != nil {
+		log.Errorf("Error parsing CLI args: %v", err)
+		return 1
+	}
+
+	if flags.CPUProfile != "" {
+		f, err := os.Create(flags.CPUProfile)
 		if err != nil {
-			log.Errorf("Error parsing CLI args: %v", err)
+			log.Errorf("could not create CPU profile: %v", err)
 			return 1
 		}
-		return scanrunner.RunScan(flags)
+		defer f.Close()
+		if err := pprof.StartCPUProfile(f); err != nil {
+			log.Errorf("could not start CPU profile: %v", err)
+			return 1
+		}
+		defer pprof.StopCPUProfile()
 	}
+
+	if flags.MemProfile != "" {
+		defer func() {
+			f, err := os.Create(flags.MemProfile)
+			if err != nil {
+				log.Errorf("could not create memory profile: %v", err)
+				return
+			}
+			defer f.Close()
+			runtime.GC() // get up-to-date statistics
+			if err := pprof.WriteHeapProfile(f); err != nil {
+				log.Errorf("could not write memory profile: %v", err)
+			}
+		}()
+	}
+
+	return scanrunner.RunScan(flags)
 }
 
 func parseFlags(args []string) (*cli.Flags, error) {
@@ -98,6 +128,8 @@ func parseFlags(args []string) (*cli.Flags, error) {
 	offline := fs.Bool("offline", false, "Offline mode: Run only plugins that don't require network access")
 	localRegistry := fs.String("local-registry", "", "The local directory to store the downloaded manifests during dependency resolution.")
 	disableGoogleAuth := fs.Bool("disable-google-auth", false, "Disables the use of Google Application Default Credentials for authenticating with Google Artifact Registry.")
+	cpuProfile := fs.String("cpuprofile", "", "write cpu profile to file")
+	memProfile := fs.String("memprofile", "", "write memory profile to this file")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, err
@@ -140,6 +172,8 @@ func parseFlags(args []string) (*cli.Flags, error) {
 		Offline:               *offline,
 		LocalRegistry:         *localRegistry,
 		DisableGoogleAuth:     *disableGoogleAuth,
+		CPUProfile:            *cpuProfile,
+		MemProfile:            *memProfile,
 	}
 	if err := cli.ValidateFlags(flags); err != nil {
 		return nil, err

@@ -156,6 +156,8 @@ type Flags struct {
 	Offline               bool
 	LocalRegistry         string
 	DisableGoogleAuth     bool
+	CPUProfile            string
+	MemProfile            string
 }
 
 var supportedOutputFormats = []string{
